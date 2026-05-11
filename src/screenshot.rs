@@ -1,47 +1,57 @@
-use image::image_dimensions;
-use image::imageops::FilterType;
+use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
+use hyprland::data::{Monitors, Workspace};
+use hyprland::shared::{HyprData, HyprDataActive};
+use image::codecs::jpeg::JpegEncoder;
 use std::process::Command;
 
-pub fn take_area_screenshot(x: i32, y: i32, width: i32, height: i32, filename: &str) {
-    let geometry = format!("{},{} {}x{}", x, y, width, height);
+/// Captures the entire monitor that's showing the currently active workspace.
+pub fn capture_active_workspace() -> Result<(String, u32, u32), Box<dyn std::error::Error>> {
+    let active = Workspace::get_active()?;
+    let monitor = Monitors::get()?
+        .into_iter()
+        .find(|m| m.active_workspace.id == active.id)
+        .ok_or("no monitor for active workspace")?;
 
-    let status = Command::new("grim")
-        .args(["-g", &geometry, filename])
-        .status()
-        .expect("Failed to execute grim");
-
-    if status.success() {
-        resize_screenshot(filename, 1920);
-        println!("Screenshot saved to {}", filename);
-    } else {
-        eprintln!("Error taking screenshot");
-    }
+    capture_for_claude(
+        monitor.x,
+        monitor.y,
+        monitor.width as i32,
+        monitor.height as i32,
+    )
 }
 
-pub fn resize_screenshot(filename: &str, max_long_edge: u32) {
-    let (w, h) = match image_dimensions(filename) {
-        Ok(dim) => dim,
-        Err(e) => {
-            eprintln!("Error reading image dimensions: {}", e);
-            return;
-        }
-    };
+/// Captures a screen region with grim, encodes as JPEG q85, and returns base64
+/// plus the captured dimensions. Resize-to-Computer-Use is commented out for
+/// now — image is returned at native resolution.
+pub fn capture_for_claude(
+    x: i32,
+    y: i32,
+    width: i32,
+    height: i32,
+) -> Result<(String, u32, u32), Box<dyn std::error::Error>> {
+    let geometry = format!("{},{} {}x{}", x, y, width, height);
+    let output = Command::new("grim").args(["-g", &geometry, "-"]).output()?;
 
-    if w.max(h) <= max_long_edge {
-        return;
+    if !output.status.success() {
+        return Err(format!("grim failed: {}", String::from_utf8_lossy(&output.stderr)).into());
     }
 
-    let img = match image::open(filename) {
-        Ok(i) => i,
-        Err(e) => {
-            eprintln!("Error opening image: {}", e);
-            return;
-        }
-    };
+    // // Pick the closest Computer Use aspect-matched resolution.
+    // let ratio = width as f64 / height.max(1) as f64;
+    // let (declared_w, declared_h) = [
+    //     (1024u32, 768u32, 4.0 / 3.0),
+    //     (1280, 800, 16.0 / 10.0),
+    //     (1366, 768, 16.0 / 9.0),
+    // ]
+    // .into_iter()
+    // .min_by(|a, b| (a.2 - ratio).abs().partial_cmp(&(b.2 - ratio).abs()).unwrap())
+    // .map(|(w, h, _)| (w, h))
+    // .unwrap();
 
-    let resized = img.resize(max_long_edge, max_long_edge, FilterType::Lanczos3);
+    let img = image::load_from_memory(&output.stdout)?;
+    // let img = img.resize_exact(declared_w, declared_h, FilterType::Lanczos3);
 
-    if let Err(e) = resized.save(filename) {
-        eprintln!("Error saving resized image: {}", e);
-    }
+    let mut jpeg: Vec<u8> = Vec::new();
+    img.write_with_encoder(JpegEncoder::new_with_quality(&mut jpeg, 85))?;
+    Ok((BASE64.encode(&jpeg), width as u32, height as u32))
 }

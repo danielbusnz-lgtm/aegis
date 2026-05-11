@@ -1,11 +1,15 @@
 [package]
-name = "cursor-sidecar"
+name = "aegis"
 version = "0.1.0"
 edition = "2024"
+default-run = "aegis"
 
 [dependencies]
-gtk = { package = "gtk4", version = "0.11.3" }
+base64 = "0.22.1"
+dotenvy = "0.15.7"
+gtk = { package = "gtk4", version = "0.11.3", features = ["v4_6"] }
 gtk4-layer-shell = "0.8.0"
 hyprland = "0.4.0-beta.3"
 image = "0.25.10"
+reqwest = { version = "0.13.3", features = ["blocking", "json"] }
 serde_json = "1.0.149"
