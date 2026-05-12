@@ -22,3 +22,9 @@ pub fn init() -> std::io::Result<()> {
 pub fn is_recording() -> bool {
     RECORDING.load(Ordering::Relaxed)
 }
+
+pub fn wait_for_press() {
+    while !is_recording() {
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
+}

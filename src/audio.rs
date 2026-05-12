@@ -1,38 +1,46 @@
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
-pub fn test_record() {
-    let host = cpal::default_host();
+pub fn record_until_release() -> Vec<f32> {
+    let buffer = Arc::new(Mutex::new(Vec::<f32>::new()));
+    let buffer_for_callback = Arc::clone(&buffer);
 
+    let host = cpal::default_host();
     let device = host
-        .default_input_device()
+        .input_devices()
+        .expect("could not list input devices")
+        .find(|d| {
+            d.name()
+                .map(|n| n == "pulse" || n == "pipewire")
+                .unwrap_or(false)
+        })
+        .or_else(|| host.default_input_device())
         .expect("no input device available");
 
-    let mut supported_configs_range = device
-        .supported_input_configs()
-        .expect("error while querying configs");
-
-    let config = supported_configs_range
-        .next()
-        .expect("no supported config?!")
-        .with_max_sample_rate()
+    let config = device
+        .default_input_config()
+        .expect("no default input config")
         .config();
 
     let stream = device
         .build_input_stream(
             &config,
             move |data: &[f32], _: &cpal::InputCallbackInfo| {
-                // react to stream events and read or write stream data here.
+                let mut buf = buffer_for_callback.lock().unwrap();
+                buf.extend_from_slice(data);
             },
-            move |err| {
-                // react to errors here.
-            },
+            move |err| eprintln!("audio stream error: {}", err),
             None,
         )
         .expect("failed to build input stream");
 
     stream.play().expect("failed to start stream");
 
-    thread::sleep(Duration::from_secs(3));
+    while crate::hotkey::is_recording() {
+        thread::sleep(Duration::from_millis(10));
+    }
+
+    buffer.lock().unwrap().clone()
 }
