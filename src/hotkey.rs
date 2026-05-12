@@ -10,8 +10,14 @@ pub fn init() -> std::io::Result<()> {
     thread::spawn(move || {
         for sig in &mut signals {
             match sig {
-                SIGUSR1 => RECORDING.store(true, Ordering::Relaxed),
-                SIGUSR2 => RECORDING.store(false, Ordering::Relaxed),
+                SIGUSR1 => {
+                    eprintln!("[hotkey] SIGUSR1 received (press)");
+                    RECORDING.store(true, Ordering::Relaxed);
+                }
+                SIGUSR2 => {
+                    eprintln!("[hotkey] SIGUSR2 received (release)");
+                    RECORDING.store(false, Ordering::Relaxed);
+                }
                 _ => {}
             }
         }

@@ -25,12 +25,7 @@ fn main() {
 }
 
 fn play_test() {
-    let file = std::io::BufReader::new(
-        std::fs::File::open("/usr/share/sounds/alsa/Front_Center.wav")
-            .expect("could not open sound file"),
-    );
-    let handle = rodio::DeviceSinkBuilder::open_default_sink()
-        .expect("could not open audio output");
-    let player = rodio::play(handle.mixer(), file).expect("could not play");
-    player.sleep_until_end();
+    let bytes = std::fs::read("/usr/share/sounds/alsa/Front_Center.wav")
+        .expect("could not read sound file");
+    audio::play(&bytes).expect("playback failed");
 }
