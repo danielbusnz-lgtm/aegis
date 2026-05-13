@@ -82,6 +82,10 @@ impl ApplicationHandler for CursorApp {
         match event {
             WindowEvent::CloseRequested => event_loop.exit(),
             WindowEvent::RedrawRequested => {
+                // Drain any pending hotkey events. The manager lives on this
+                // (main) thread per macOS's requirement; this is where its
+                // events get processed.
+                crate::hotkey::poll();
                 self.render();
                 if let Some(w) = &self.window {
                     w.request_redraw();

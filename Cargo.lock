@@ -47,7 +47,6 @@ dependencies = [
  "tiny-skia",
  "tokio",
  "tokio-tungstenite",
- "windows-sys 0.59.0",
  "winit",
  "xcap",
 ]
