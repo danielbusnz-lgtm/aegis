@@ -2,6 +2,7 @@
 mod cursor;
 #[path = "../mouse/mod.rs"]
 mod mouse;
+#[cfg(feature = "hyprland")]
 #[path = "../painter.rs"]
 mod painter;
 #[path = "../screenshot/mod.rs"]
