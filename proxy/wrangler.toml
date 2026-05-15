@@ -4,9 +4,15 @@ compatibility_date = "2026-05-15"
 
 # Default daily caps (per device, UTC day). Override here without redeploying
 # code — `wrangler deploy` picks up changes.
+#
+# Sizing for aegis: each voice turn sends two screenshots (find_point @ ~186KB
+# resized ≈ 1.3k input tokens + describe @ ~1MB full-res ≈ 1.5k input tokens)
+# plus system prompt and transcript, so ~3.5k input tokens per turn. Output
+# is much smaller (~200-300 tokens). 100k input / 20k output ≈ 30 turns/day
+# at the cap, which is enough for a test user to actually evaluate the app.
 [vars]
-DAILY_INPUT_TOKEN_CAP = "30000"
-DAILY_OUTPUT_TOKEN_CAP = "10000"
+DAILY_INPUT_TOKEN_CAP = "100000"
+DAILY_OUTPUT_TOKEN_CAP = "20000"
 
 # KV namespace for per-device usage counters. Create with:
 #   wrangler kv namespace create USAGE_KV
