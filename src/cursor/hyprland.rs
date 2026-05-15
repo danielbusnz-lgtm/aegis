@@ -91,6 +91,15 @@ fn start_tracking(
     initial_y: i32,
     receiver: Receiver<(i32, i32)>,
 ) {
+    // Hyprland reports cursor coords in global virtual-desktop space, but
+    // our layer-shell window's coordinate space is local to the monitor it
+    // lives on (starts at 0,0 at that monitor's top-left). Subtract the
+    // monitor origin so the sprite lands where the mouse actually is.
+    let (mon_x, mon_y) = match crate::screenshot::active_workspace_geometry() {
+        Ok((x, y, _, _)) => (x as f64, y as f64),
+        Err(_) => (0.0, 0.0),
+    };
+
     let mut cursor_x = initial_x as f64;
     let mut cursor_y = initial_y as f64;
     let mut override_target: Option<(i32, i32, Instant)> = None;
@@ -113,16 +122,20 @@ fn start_tracking(
         // When pointing (override active), draw EXACTLY on the target so
         // Claude's coordinates land where they should. When following the
         // mouse, apply the usual offsets so the sprite floats next to the
-        // pointer instead of obscuring it.
+        // pointer instead of obscuring it. Both the override coords (from
+        // Claude, scaled against a grim-captured screenshot) and the live
+        // mouse coords come in global desktop space, so both get the
+        // monitor-origin subtraction.
         let (target, apply_offsets) = match override_target {
-            Some((target_x, target_y, until)) if Instant::now() < until => {
-                (Some((target_x as f64, target_y as f64)), false)
-            }
+            Some((target_x, target_y, until)) if Instant::now() < until => (
+                Some((target_x as f64 - mon_x, target_y as f64 - mon_y)),
+                false,
+            ),
             _ => {
                 override_target = None;
-                let mouse = crate::mouse::mouse_movement()
-                    .ok()
-                    .map(|(mouse_x, mouse_y)| (mouse_x as f64, mouse_y as f64));
+                let mouse = crate::mouse::mouse_movement().ok().map(|(mx, my)| {
+                    (mx as f64 - mon_x, my as f64 - mon_y)
+                });
                 (mouse, true)
             }
         };
